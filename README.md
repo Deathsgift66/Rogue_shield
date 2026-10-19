@@ -1,32 +1,41 @@
 # RogueShield
 
-**Defensive review toolkit for software maintainers.** This is a small, standalone Python developer preview for *offline* static checks, OpenAPI contract inspection, and synthetic state-integrity testing.
+**Free, MIT-licensed, security-focused software for independent developers and game studios.**
 
-**Current public build: foundation release.** The full v0.1 prototype exists separately; this repository currently implements the three offline commands below. Network scanning, SARIF output, AI planners, exploit validation, and plugin execution are **not** yet implemented in the GitHub version. No security certification is implied.
+RogueShield helps maintainers review common security risks in source code, web API specifications, and synthetic application/game economy state. The goal is to scale from beginner-friendly guidance to rigorous, authorized testing workflows—**without becoming an unrestricted hacking tool**.
 
-## Getting started
+**Status: early developer preview.** The public repository currently implements offline checks and a safety-focused setup flow. It does not yet perform validated end-to-end penetration tests, live 700-client swarm tests, AI-driven assessments, or real-world load testing. An empty findings list does not prove safety.
 
-Requires Python 3.11 or newer. There are no runtime third-party dependencies.
+## Start here
+
+Requires Python 3.11+. No paid account, AI subscription or runtime external dependency is required.
 
 ```sh
-python -m unittest discover -s tests -v
-python -m rogueshield static rogueshield --out static-report.json
-python -m rogueshield openapi path/to/openapi.json --out api-report.json
-python -m rogueshield invariants examples/demo-invariants.json --out invariant-report.json
+python -m rogueshield setup
+python -m rogueshield static ./my-project --out my-report.json
+python -m rogueshield openapi ./openapi.json --out api-report.json
+python -m rogueshield invariants examples/demo-invariants.json --out economy-report.json
+python -m rogueshield swarm-preview --agents 700
 ```
 
-Each command produces a JSON report. Exit status `0` means no findings at the selected threshold, `2` means findings reached the threshold, and `3` means input or output failure. Use `--fail-on low|medium|high|critical` to adjust the threshold (default `high`). Findings are **review indicators**, not verified security defects.
+The setup flow prompts for **testing level** (beginner, standard, advanced or swarm-simulation), **environment** (local, isolated-staging, staging or production), and a typed declaration that the operator owns the target or is authorized to test it. It writes a local profile that should not be committed. **All profiles currently allow zero network requests.** Production selection does not unlock intrusive testing. The swarm-preview command merely validates a modeled agent count; it launches no processes, connections, or attack workload.
 
-## Independence from other projects
+Test levels are currently planning/profile metadata, not different-depth automatic analyses. The current commands operate entirely offline. Actual beginner and advanced analysis workflows, readable HTML reporting, staging authorizations and high-scale synthetic simulation are future work.
 
-RogueShield is an independent, general-purpose project. **No proprietary Thronestead code, game configuration, game architecture details, player information, private audits, credentials, unreleased mechanics, or proprietary assets should ever be copied here.** Fixtures in this repository must use imaginary identifiers and invented data.
+For now, reports are JSON. Each reported finding is a review indicator, **not confirmation that a vulnerability is exploitable**. Exit code `0` means no issues meeting the configured threshold, `2` means qualifying issues were found, and `3` indicates an input or output problem. For existing commands, `--fail-on low|medium|high|critical` chooses the failure threshold (default: high).
 
-## Responsible use
+## Project mission
 
-The current commands operate on local files only. Any future network testing must require explicit owner authorization and strong safety limits. Do not use this software on services or data you do not have authorization to assess.
+RogueShield aims to cover websites, APIs, game servers, authentication and authorization, virtual currencies, inventories, marketplaces, multiplayer sessions, live-service infrastructure, AI/agent security, software supply chains, and safe resilience modeling. Support will be built progressively, with tests, documentation, platform coverage and explicit safety enforcement at every step.
 
-## License status
+## Security and responsible use
 
-The MIT License was proposed for the earlier prototype, but the maintainer has not yet finalized the terms. **This publicly viewable repository has not yet been granted an open-source license.** Public visibility is not a grant of unrestricted reuse rights. The license and accurate copyright notice should be selected before a formal public release.
+**No proprietary source code, infrastructure configuration, private security findings, player information, credentials or unreleased materials from any game or company belong in this repository.** All bundled examples use synthetic information.
 
-See [ROADMAP.md](ROADMAP.md), [CONTRIBUTING.md](CONTRIBUTING.md), and [SECURITY.md](SECURITY.md) for the project direction and policies.
+Read [ACCEPTABLE_USE.md](ACCEPTABLE_USE.md), [SECURITY.md](SECURITY.md) and [CONTRIBUTING.md](CONTRIBUTING.md). You must have authorization for any systems you assess. A self-attestation is not independent verification of permission; future network features require stronger controls. The project intentionally excludes unrestricted offensive automation, credential attacks and service-exhaustion tooling from its official implementation.
+
+## License and liability
+
+RogueShield is distributed under the [MIT License](LICENSE), as approved by the project maintainer. It is supplied **AS IS**, without warranty, subject to the exact license terms and applicable law. The disclaimer does not guarantee that maintainers can never be held liable. This project makes no guarantee of complete protection, testing accuracy or fitness for a specific purpose.
+
+See [ROADMAP.md](ROADMAP.md) for planned expansion.
