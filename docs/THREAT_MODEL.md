@@ -1,4 +1,4 @@
-# RogueShield Threat Model (v0.3)
+# RogueShield Threat Model (v0.5)
 
 ## Trust boundaries
 
@@ -9,20 +9,24 @@ Local source trees, JSON specifications, fixtures, filenames and generated findi
 - Local Python AST heuristics.
 - Local OpenAPI 3.x metadata heuristics.
 - Local synthetic ledger and replay comparisons.
+- Fixture-only object/role/tenant authorization policy comparisons and cohort coverage.
+- Deterministic baseline report comparison and SARIF finding fingerprints.
 - Strict offline scope declaration checks (no network executor exists).
 - Deterministic virtual-agent quota modeling without sockets/processes.
 - Escaped, standalone HTML; text and JSON reports.
 
 ## Adversarial design concerns
 
-- **Scope spoofing:** Self-attestation can be false; v0.3 prevents network execution entirely. A later scope broker must enforce target-side proof and pin network boundaries.
+- **Scope spoofing:** Self-attestation can be false; v0.5 prevents network execution entirely. A later scope broker must enforce target-side proof and pin network boundaries.
 - **Source/path privacy:** Reports may contain path metadata; no body capture or centralized telemetry. Users should keep reports private.
 - **HTML injection:** Report content is escaped and a local Content Security Policy restricts scripts and remote resources.
 - **Work exhaustion:** Input JSON capped at 1MB, Python file count capped at 3,000, swarm workload capped at two million abstract decisions.
-- **False confidence:** Reports explicitly say heuristics are not verified exploitability or complete coverage.
+- **False confidence:** Reports explicitly say heuristics are not verified exploitability or complete coverage. Fixture observations and declared policies can both be wrong; a clean authorization matrix cannot verify a deployed API.
+- **Baseline masking:** Baselines can include unresolved findings. Regression gating flags only new or worsened indicators; teams must track existing risks independently.
+- **Report tampering:** A present but mismatched finding fingerprint is rejected; fingerprint hashes are not signatures or authenticity proofs.
 - **Forked copies:** MIT permits modifications; safeguards in official builds cannot be guaranteed for forks.
 
-No code in v0.3 opens a target network connection. No UI/CLI choice can override that. No LLM executes arbitrary tools, and there are no external dependencies for runtime checks.
+No code in v0.5 opens a target network connection. No UI/CLI choice can override that. No LLM executes arbitrary tools, and there are no external dependencies for runtime checks.
 
 ## Future high-risk components
 
