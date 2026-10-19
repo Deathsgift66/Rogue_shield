@@ -5,7 +5,7 @@ import os
 import stat
 import io
 import tokenize
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, localcontext
 import json
 from pathlib import Path
 from rogueshield.localio import read_regular
@@ -173,7 +173,7 @@ def inspect_openapi(path: str) -> list[dict]:
                 _declares_required_auth(operation["security"])
                 if "security" in operation else global_auth_required
             )
-            if sensitive and not operation_auth_required:
+            if sensitive and method.lower() != "options" and not operation_auth_required:
                 found.append(finding("API-AUTH-DOC", "medium", f"{method.upper()} {path_name}",
                                      "Sensitive operation permits anonymous access in its OpenAPI security declaration"))
             if operation.get("deprecated") is True and method.lower() not in {"get", "head", "options"}:
@@ -187,7 +187,7 @@ def _fixture_decimal(value: object) -> Decimal:
         raise ValueError("Synthetic asset amount must be numeric")
     try:
         amount = Decimal(str(value))
-        if not amount.is_finite() or amount.adjusted() > 100 or amount.as_tuple().exponent < -100:
+        if not amount.is_finite() or amount.adjusted() > 100 or abs(amount.as_tuple().exponent) > 100:
             raise ValueError("Synthetic asset amount exceeds numeric bounds")
         return amount
     except (InvalidOperation, ValueError) as exc:
@@ -213,14 +213,15 @@ def inspect_invariants(path: str) -> list[dict]:
         raise ValueError("Invalid or over-budget invariant collection")
     for i, transfer in enumerate(transfers):
         try:
-            before = [Decimal(str(x)) for x in transfer["before"].values()]
-            after = [Decimal(str(x)) for x in transfer["after"].values()]
-            external = Decimal(str(transfer.get("expected_external_delta", "0")))
-            if not all(x.is_finite() for x in before + after + [external]):
-                raise ValueError("Nonfinite amount")
+            before = [_fixture_decimal(x) for x in transfer["before"].values()]
+            after = [_fixture_decimal(x) for x in transfer["after"].values()]
+            external = _fixture_decimal(transfer.get("expected_external_delta", "0"))
         except (KeyError, AttributeError, InvalidOperation, ValueError, TypeError) as exc:
             raise ValueError(f"Invalid synthetic transfer fixture #{i}") from exc
-        if sum(after) - sum(before) != external:
+        with localcontext() as context:
+            context.prec = 256  # Exact for the bounded 100-digit, 100-scale fixture amounts.
+            conserved = sum(after) - sum(before) == external
+        if not conserved:
             found.append(finding("INV-CONSERVATION", "high", f"transfers[{i}]",
                                  "Observed totals differ from expected external change"))
         if transfer.get("nonnegative", True) and any(x < 0 for x in after):
@@ -252,7 +253,10 @@ def inspect_invariants(path: str) -> list[dict]:
             before_amounts = _asset_balances(before.get(asset, {}))
             after_amounts = _asset_balances(after.get(asset, {}))
             expected_delta = _fixture_decimal(external.get(asset, "0"))
-            if sum(after_amounts) - sum(before_amounts) != expected_delta:
+            with localcontext() as context:
+                context.prec = 256
+                conserved = sum(after_amounts) - sum(before_amounts) == expected_delta
+            if not conserved:
                 found.append(finding(
                     "INV-ASSET-CONSERVATION", "high", f"asset_transfers[{i}].{asset}",
                     "Asset totals differ from the explicitly expected mint/burn delta",
