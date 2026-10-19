@@ -71,6 +71,16 @@ class HardeningRegressions(unittest.TestCase):
             })
             self.assertEqual(inspect_openapi(str(path)), [])
 
+    def test_openapi_options_preflight_is_not_treated_as_protected_operation(self):
+        with TemporaryDirectory() as root:
+            path = self._json(root, "api.json", {
+                "openapi": "3.0.3",
+                "paths": {"/api/v1/admin/settings": {"options": {}, "get": {}}},
+            })
+            issues = inspect_openapi(str(path))
+            self.assertEqual(len(issues), 1)
+            self.assertEqual(issues[0]["location"], "GET /api/v1/admin/settings")
+
     def test_openapi_malformed_security_rejected(self):
         with TemporaryDirectory() as root:
             for value in ({"bearerAuth": []}, [None], [{"bearerAuth": "scope"}]):
@@ -102,6 +112,16 @@ class HardeningRegressions(unittest.TestCase):
                 "expected_external_delta": {"gold": "2"},
             }]})
             self.assertEqual(inspect_invariants(str(path)), [])
+
+    def test_large_balances_do_not_hide_one_unit_asset_creation(self):
+        with TemporaryDirectory() as root:
+            huge = "10000000000000000000000000000000000000000"
+            path = self._json(root, "ledger.json", {"asset_transfers": [{
+                "before": {"gold": {"alice": huge}},
+                "after": {"gold": {"alice": str(int(huge) + 1)}},
+            }]})
+            self.assertEqual([f["rule_id"] for f in inspect_invariants(str(path))],
+                             ["INV-ASSET-CONSERVATION"])
 
     def test_negative_per_asset_balance_is_detected(self):
         with TemporaryDirectory() as root:
