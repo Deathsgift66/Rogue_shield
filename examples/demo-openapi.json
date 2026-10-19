@@ -1,0 +1,1 @@
+{"openapi":"3.0.3","servers":[{"url":"https://staging.example.invalid"}],"paths":{"/admin/illustrative":{"get":{"responses":{"200":{"description":"Example"}}}},"/public":{"get":{"responses":{"200":{"description":"Example"}}}}}}

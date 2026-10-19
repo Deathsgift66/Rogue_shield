@@ -1,0 +1,1 @@
+{"engagement_id":"sample-offline-review","operator_acknowledgment":true,"environment":"isolated-staging","targets":["https://staging.example.invalid"],"methods":["GET"],"max_requests":0,"expires_at":"2099-01-01T00:00:00+00:00"}

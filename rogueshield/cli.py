@@ -1,76 +1,137 @@
-"""RogueShield command line, offline by default."""
+"""RogueShield v0.3 beginner-friendly, offline-only command line."""
 from __future__ import annotations
-
 import argparse
 import json
 from pathlib import Path
 import sys
-
 from rogueshield import __version__
-from rogueshield.offline import inspect_python, inspect_openapi, inspect_invariants
-from rogueshield.safety import CONSENT_PHRASE, ENVIRONMENTS, LEVELS, choose_profile, simulate_swarm
+from rogueshield.manifest import validate_scope
+from rogueshield.localio import create_private
+from rogueshield.offline import inspect_python, inspect_openapi, inspect_invariants, read_json
+from rogueshield.reporting import assemble, html_report, text_report, write_report, _terminal_safe
+from rogueshield.review import inspect
+from rogueshield.safety import CONSENT_PHRASE, ENVIRONMENTS, LEVELS, choose_profile
+from rogueshield.swarm import SwarmConfig, simulate
 
 LEVEL = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
 
 
+def _add_output_options(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--out", help="Local report path")
+    parser.add_argument("--format", choices=("text", "json", "html"), default="text")
+    parser.add_argument("--fail-on", choices=tuple(LEVEL), default="high")
+
+
+def _print_help() -> None:
+    print("""RogueShield v0.3 — BEGIN HERE
+
+  1. First time?  python -m rogueshield setup
+  2. Review code: python -m rogueshield review ./your-project
+  3. Save an understandable report:
+                 python -m rogueshield review ./your-project --format html --out review.html
+  4. Model 700 virtual actors safely:
+                 python -m rogueshield swarm-preview --agents 700
+
+The software does not contact websites, create live agents or modify tested services.
+Review indicators require manual verification; no finding is proof that your system is secure.
+""")
+
+
+def _report(mode: str, findings: list[dict], fmt: str, output: str | None, threshold: str,
+            *, preassembled: dict | None = None) -> int:
+    report = preassembled if preassembled is not None else assemble(mode, findings)
+    if output:
+        write_report(report, output, fmt)
+        print(f"Saved {fmt} report: {_terminal_safe(output)}")
+    elif fmt == "json":
+        print(json.dumps(report, sort_keys=True, indent=2))
+    elif fmt == "html":
+        print(html_report(report))
+    else:
+        print(text_report(report), end="")
+    return 2 if any(LEVEL.get(f.get("severity"), 0) >= LEVEL[threshold] for f in findings) else 0
+
+
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="RogueShield offline defensive checks")
+    parser = argparse.ArgumentParser(description="RogueShield: accessible offline defensive assessment")
     parser.add_argument("--version", action="version", version=__version__)
-    sub = parser.add_subparsers(dest="command", required=True)
-    for name in ("static", "openapi", "invariants"):
-        p = sub.add_parser(name)
+    subs = parser.add_subparsers(dest="command", required=True)
+    for name in ("static", "openapi", "invariants", "review"):
+        p = subs.add_parser(name, help="Analyze local files; never contacts a target")
         p.add_argument("input")
-        p.add_argument("--out", help="Write JSON report")
-        p.add_argument("--fail-on", choices=tuple(LEVEL), default="high")
-    setup = sub.add_parser("setup", help="Select safe test level/environment and acknowledge authorization")
-    setup.add_argument("--level", choices=LEVELS, help="Offline testing profile")
-    setup.add_argument("--environment", choices=ENVIRONMENTS, help="Where your system runs")
-    setup.add_argument("--out", default="rogueshield.local.json", help="Local profile (never commit)")
-    swarm = sub.add_parser("swarm-preview", help="Model agent count offline; generates no traffic")
+        _add_output_options(p)
+    subs.add_parser("guide", help="Explain simple first steps")
+    setup = subs.add_parser("setup", help="Choose testing level, environment and authorization")
+    setup.add_argument("--level", choices=LEVELS)
+    setup.add_argument("--environment", choices=ENVIRONMENTS)
+    setup.add_argument("--out", default="rogueshield.local.json")
+    swarm = subs.add_parser("swarm-preview", help="Run a synthetic quota-defense model offline")
     swarm.add_argument("--agents", type=int, default=700)
+    swarm.add_argument("--rounds", type=int, default=10)
+    swarm.add_argument("--actions-per-agent", type=int, default=4)
+    swarm.add_argument("--identity-limit", type=int, default=2)
+    swarm.add_argument("--origin-limit", type=int, default=30)
+    swarm.add_argument("--global-limit", type=int, default=100)
+    swarm.add_argument("--origin-groups", type=int, default=35)
+    swarm.add_argument("--out")
+    scope = subs.add_parser("scope-check", help="Validate a future engagement declaration offline")
+    scope.add_argument("input")
     args = parser.parse_args(argv)
     try:
+        if args.command == "guide":
+            _print_help()
+            return 0
         if args.command == "setup":
-            chosen_level = args.level or input("Choose test level (beginner/standard/advanced/swarm-simulation): ").strip()
-            environment = args.environment or input("Environment (local/isolated-staging/staging/production): ").strip()
-            print("RogueShield is authorized for defensive work only.")
-            print("You must own the target or have explicit permission for the methods used.")
-            print("The present edition runs OFFLINE checks only. This acknowledgment does not authorize any network test.")
-            confirmation = input("Type exactly '" + CONSENT_PHRASE + "' to continue: ").strip()
-            profile = choose_profile(chosen_level, environment, confirmation)
-            location = Path(args.out)
-            if location.is_symlink() or location.exists():
-                raise ValueError("Refusing to replace an existing profile or symlink")
-            result = {"version": 1, "level": profile.level,
-                      "environment": profile.environment,
-                      "execution_mode": profile.mode, "max_live_requests": 0,
-                      "acknowledged": True,
-                      "acknowledgment_text": CONSENT_PHRASE,
-                      "note": "This file is not proof of target ownership or network-testing permission"}
-            location.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
-            print("Offline profile created:", location)
-            print("Next: python -m rogueshield static <source-folder>")
+            lvl = args.level or input("Testing level (beginner/standard/advanced/swarm-simulation): ").strip()
+            env = args.environment or input("Environment (local/isolated-staging/staging/production): ").strip()
+            print("Only assess systems you own or have permission to test.")
+            print("All v0.3 profiles are OFFLINE only, including production and swarm simulation.")
+            accepted = input("Type exactly '" + CONSENT_PHRASE + "': ").strip()
+            profile = choose_profile(lvl, env, accepted)
+            output = Path(args.out)
+            if output.exists() or output.is_symlink() or not output.parent.is_dir():
+                raise ValueError("Profile file already exists or destination is invalid")
+            create_private(output, json.dumps({"schema_version": 1, "level": profile.level,
+                                          "environment": profile.environment,
+                                          "execution_mode": "offline", "max_live_requests": 0,
+                                          "authorization_acknowledged": True,
+                                          "note": "Self-attestation is not independent proof of permission"}, indent=2) + "\n")
+            print(f"Offline profile saved: {_terminal_safe(output)}")
             return 0
         if args.command == "swarm-preview":
-            modeled = simulate_swarm(args.agents)
-            print(json.dumps(modeled, indent=2, sort_keys=True))
+            result = simulate(SwarmConfig(agents=args.agents, rounds=args.rounds,
+                                          actions_per_agent=args.actions_per_agent,
+                                          identity_limit=args.identity_limit,
+                                          origin_limit=args.origin_limit,
+                                          global_limit=args.global_limit,
+                                          origin_groups=args.origin_groups))
+            if args.out:
+                output = Path(args.out)
+                if output.is_symlink() or not output.parent.is_dir():
+                    raise ValueError("Invalid output destination")
+                create_private(output, json.dumps(result, indent=2, sort_keys=True) + "\n")
+                print(f"Saved synthetic swarm model: {_terminal_safe(output)}")
+            else:
+                print("ROGUESHIELD • VIRTUAL SWARM MODEL (NO NETWORK TRAFFIC)")
+                print(f"Virtual agents: {result['config']['agents']:,}")
+                print(f"Simulated decisions: {result['modeled_attempts']:,}")
+                print(f"Allowed by modeled quotas: {result['modeled_allowed']:,}")
+                print(f"Blocked by modeled quotas: {result['modeled_blocked']:,}")
+                print("No real load, defense testing or attack occurred. This model cannot establish real capacity.")
             return 0
+        if args.command == "scope-check":
+            print(json.dumps(validate_scope(read_json(args.input)), indent=2, sort_keys=True))
+            return 0
+        if args.command == "review":
+            report = inspect(args.input)
+            findings = report["findings"]
+            # Reuse presentation without falsely counting multiple heuristics as verified defects.
+            return _report("guided-offline-review", findings, args.format, args.out, args.fail_on, preassembled=report)
         tasks = {"static": inspect_python, "openapi": inspect_openapi, "invariants": inspect_invariants}
-        findings = tasks[args.command](args.input)
-        report = {"tool": "RogueShield", "version": __version__,
-                  "mode": args.command, "findings": findings,
-                  "summary": {"count": len(findings)}}
-        result = json.dumps(report, indent=2, sort_keys=True) + "\n"
-        if args.out:
-            target = Path(args.out)
-            if target.is_symlink():
-                raise ValueError("Refusing to write through a symbolic link")
-            target.write_text(result, encoding="utf-8")
-        else:
-            print(result, end="")
-        return 2 if any(LEVEL[f["severity"]] >= LEVEL[args.fail_on] for f in findings) else 0
-    except (ValueError, OSError, json.JSONDecodeError, PermissionError, EOFError, KeyboardInterrupt) as exc:
-        print(f"RogueShield: input, permission or output error ({type(exc).__name__})", file=sys.stderr)
+        return _report(args.command, tasks[args.command](args.input), args.format, args.out, args.fail_on)
+    except (ValueError, OSError, PermissionError, EOFError, KeyboardInterrupt, json.JSONDecodeError) as exc:
+        print(f"RogueShield could not complete this operation ({type(exc).__name__}). "
+              "Check local paths, format, and explicit permission.", file=sys.stderr)
         return 3
 
 

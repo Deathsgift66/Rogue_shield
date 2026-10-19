@@ -1,41 +1,67 @@
-# RogueShield
+# RogueShield v0.3
 
-**Free, MIT-licensed, security-focused software for independent developers and game studios.**
+**Free, MIT-licensed defensive security review for indie developers, software teams, and game studios.**
 
-RogueShield helps maintainers review common security risks in source code, web API specifications, and synthetic application/game economy state. The goal is to scale from beginner-friendly guidance to rigorous, authorized testing workflows—**without becoming an unrestricted hacking tool**.
+> **Developer preview, not a comprehensive pentest.** v0.3 reviews files on your own computer. It **does not connect to target sites, run attacks, launch agents, test real-world capacity, or guarantee security**. Findings are leads requiring verification.
 
-**Status: early developer preview.** The public repository currently implements offline checks and a safety-focused setup flow. It does not yet perform validated end-to-end penetration tests, live 700-client swarm tests, AI-driven assessments, or real-world load testing. An empty findings list does not prove safety.
+## Start in under two minutes
 
-## Start here
+Requires Python **3.11+**. No paid services, external dependencies, accounts, API keys, AI model, container runtime, or remote telemetry are needed.
 
-Requires Python 3.11+. No paid account, AI subscription or runtime external dependency is required.
-
-```sh
+```bash
+python -m rogueshield guide
 python -m rogueshield setup
-python -m rogueshield static ./my-project --out my-report.json
-python -m rogueshield openapi ./openapi.json --out api-report.json
-python -m rogueshield invariants examples/demo-invariants.json --out economy-report.json
+python -m rogueshield review ./your-project
+python -m rogueshield review ./your-project --format html --out review.html
 python -m rogueshield swarm-preview --agents 700
 ```
 
-The setup flow prompts for **testing level** (beginner, standard, advanced or swarm-simulation), **environment** (local, isolated-staging, staging or production), and a typed declaration that the operator owns the target or is authorized to test it. It writes a local profile that should not be committed. **All profiles currently allow zero network requests.** Production selection does not unlock intrusive testing. The swarm-preview command merely validates a modeled agent count; it launches no processes, connections, or attack workload.
+To install locally from this repository: `python -m pip install .` and replace `python -m rogueshield` with `rogueshield`.
 
-Test levels are currently planning/profile metadata, not different-depth automatic analyses. The current commands operate entirely offline. Actual beginner and advanced analysis workflows, readable HTML reporting, staging authorizations and high-scale synthetic simulation are future work.
+**Setup** asks for the assessment level (beginner, standard, advanced, or swarm-simulation), your environment (local, isolated-staging, staging, production), and an exact authorization statement. It saves `rogueshield.local.json`, ignored by Git. These selections describe your intended assessment: **v0.3 has one offline execution policy for all choices.** Production and advanced never unlock live or intrusive tests.
 
-For now, reports are JSON. Each reported finding is a review indicator, **not confirmation that a vulnerability is exploitable**. Exit code `0` means no issues meeting the configured threshold, `2` means qualifying issues were found, and `3` indicates an input or output problem. For existing commands, `--fail-on low|medium|high|critical` chooses the failure threshold (default: high).
+## What works today
 
-## Project mission
+| Feature | v0.3 status | What it does |
+| --- | --- | --- |
+| Guided local review | Working | Inspect Python AST indicators, `openapi.json` or `swagger.json`, and optional `rogueshield-fixtures.json` in one directory |
+| Source inspection | Working, heuristic | Flags a small set of risky Python call patterns; cannot prove exploitability |
+| OpenAPI review | Working, heuristic | Flags HTTP server URLs, undocumented security for selected sensitive paths, deprecated modifying operations |
+| Economy-state invariants | Working, synthetic | Check conservation, negative balances, and idempotent replay using supplied example JSON |
+| Readable reports | Working | Text, standalone HTML (offline, escaped, CSP), deterministic JSON |
+| Virtual swarm model | Working, synthetic | Model local per-identity, per-origin and global quota behavior for up to 100,000 virtual identities; **no real agents or traffic** |
+| Scope declaration validation | Working, offline | Check explicit origins, authorization acknowledgment, expiry, read-only methods, zero live-request budget and fingerprint scope |
+| Dynamic web/API scanning, autonomous AI pentesting | **Not implemented** | Reserved for audited and independently approved later releases |
 
-RogueShield aims to cover websites, APIs, game servers, authentication and authorization, virtual currencies, inventories, marketplaces, multiplayer sessions, live-service infrastructure, AI/agent security, software supply chains, and safe resilience modeling. Support will be built progressively, with tests, documentation, platform coverage and explicit safety enforcement at every step.
+### Individual commands
 
-## Security and responsible use
+```bash
+python -m rogueshield static ./your-python-project --format text
+python -m rogueshield openapi examples/demo-openapi.json --format html --out api-review.html
+python -m rogueshield invariants examples/broken-invariants.json --format json --out economy-review.json
+python -m rogueshield scope-check examples/scope-offline.example.json
+python -m rogueshield swarm-preview --agents 700 --rounds 10 --identity-limit 2 --global-limit 100
+python -m unittest discover -s tests -v
+```
 
-**No proprietary source code, infrastructure configuration, private security findings, player information, credentials or unreleased materials from any game or company belong in this repository.** All bundled examples use synthetic information.
+Exit codes for scan commands: `0` no findings at the configured threshold, `2` review indicators at/above the threshold, `3` invalid input or permission. `--fail-on info|low|medium|high|critical` defaults to `high`. A zero exit code **does not mean your application is safe**.
 
-Read [ACCEPTABLE_USE.md](ACCEPTABLE_USE.md), [SECURITY.md](SECURITY.md) and [CONTRIBUTING.md](CONTRIBUTING.md). You must have authorization for any systems you assess. A self-attestation is not independent verification of permission; future network features require stronger controls. The project intentionally excludes unrestricted offensive automation, credential attacks and service-exhaustion tooling from its official implementation.
+### What the report means
 
-## License and liability
+Each review indicator shows **severity, location, what was noticed, and what to do next**. Severity is a prioritization hint, not proof of a vulnerability. Check the affected code/configuration manually before making changes. HTML reports have no external scripts or network assets.
 
-RogueShield is distributed under the [MIT License](LICENSE), as approved by the project maintainer. It is supplied **AS IS**, without warranty, subject to the exact license terms and applicable law. The disclaimer does not guarantee that maintainers can never be held liable. This project makes no guarantee of complete protection, testing accuracy or fitness for a specific purpose.
+The 700-agent **virtual** output summarizes quota decisions on abstract identities and cohorts. It is not a performance benchmark and cannot establish protection against an actual attack. See [docs/TESTING_LEVELS.md](docs/TESTING_LEVELS.md).
 
-See [ROADMAP.md](ROADMAP.md) for planned expansion.
+## Responsible use and privacy
+
+RogueShield does not grant anyone permission to test systems belonging to others. Read [AUTHORIZED_USE.md](AUTHORIZED_USE.md) and [LEGAL.md](LEGAL.md). The MIT software license and intended-use guidance are distinct; guidance does **not** change license permissions. Nothing in the project guarantees immunity from liability or that misuse is impossible.
+
+**Never commit third-party proprietary source, private game mechanics, player information, private endpoints, internal audits, credentials, or company secrets.** This public tool uses generic synthetic examples only; **no private project materials are included**.
+
+No external telemetry is implemented. Input files remain local unless the operator explicitly moves or publishes a report. Reports may include source-relative filenames and API path names; review them before sharing. Files are created privately and never overwrite existing report/configuration files.
+
+## Open source and safety
+
+This project uses the [MIT License](LICENSE) (as approved by its maintainer). See [SECURITY.md](SECURITY.md), [CONTRIBUTING.md](CONTRIBUTING.md), [ROADMAP.md](ROADMAP.md), [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md), and [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md).
+
+**v0.3 is a milestone, not a production security certification.** The roadmap separates aspirations from implemented functionality.

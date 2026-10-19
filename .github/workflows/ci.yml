@@ -1,4 +1,4 @@
-name: Python checks
+name: Offline unit and safety tests
 on:
   push:
     branches: [main]
@@ -8,11 +8,15 @@ permissions:
 jobs:
   tests:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.11', '3.12', '3.13']
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: ${{ matrix.python-version }}
       - run: python -m compileall -q rogueshield
       - run: python -m unittest discover -s tests -v
-      - run: python -m rogueshield static rogueshield --out /tmp/rogueshield-static.json
+      - run: python -m rogueshield review . --format json --out /tmp/rogueshield-review.json
+      - run: python -m rogueshield swarm-preview --agents 700 --out /tmp/rogueshield-swarm.json

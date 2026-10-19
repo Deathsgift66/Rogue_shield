@@ -1,0 +1,1 @@
+{"transfers":[{"before":{"A":"100","B":"40"},"after":{"A":"100","B":"80"},"expected_external_delta":"0"}],"replays":[{"state_after_first":{"reward":1},"state_after_repeat":{"reward":2}}]}

@@ -1,8 +1,1 @@
-{
-  "transfers": [
-    {"before": {"A": "100", "B": "40"}, "after": {"A": "80", "B": "60"}, "expected_external_delta": "0"}
-  ],
-  "replays": [
-    {"state_after_first": {"A": 80, "B": 60}, "state_after_repeat": {"A": 80, "B": 60}}
-  ]
-}
+{"transfers":[{"before":{"A":"100","B":"40"},"after":{"A":"80","B":"60"},"expected_external_delta":"0"}],"replays":[{"state_after_first":{"A":80,"B":60},"state_after_repeat":{"A":80,"B":60}}]}

@@ -12,3 +12,5 @@ build/
 *.sarif
 scan-results/
 rogueshield.local.json
+*-report.html
+*-report.json
