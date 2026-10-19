@@ -1,10 +1,12 @@
-"""RogueShield v0.3 beginner-friendly, offline-only command line."""
+"""RogueShield v0.5 beginner-friendly, offline-only command line."""
 from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
 import sys
 from rogueshield import __version__
+from rogueshield.authz import inspect_authz
+from rogueshield.baseline import compare_files, regression_at_or_above, text_comparison, write_comparison
 from rogueshield.manifest import validate_scope
 from rogueshield.localio import create_private
 from rogueshield.offline import inspect_python, inspect_openapi, inspect_invariants, read_json
@@ -23,7 +25,7 @@ def _add_output_options(parser: argparse.ArgumentParser) -> None:
 
 
 def _print_help() -> None:
-    print("""RogueShield v0.3 — BEGIN HERE
+    print("""RogueShield v0.5 — BEGIN HERE
 
   1. First time?  python -m rogueshield setup
   2. Review code: python -m rogueshield review ./your-project
@@ -57,10 +59,16 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="RogueShield: accessible offline defensive assessment")
     parser.add_argument("--version", action="version", version=__version__)
     subs = parser.add_subparsers(dest="command", required=True)
-    for name in ("static", "openapi", "invariants", "review"):
+    for name in ("static", "openapi", "invariants", "authz", "review"):
         p = subs.add_parser(name, help="Analyze local files; never contacts a target")
         p.add_argument("input")
         _add_output_options(p)
+    comparison = subs.add_parser("compare", help="Compare two offline RogueShield JSON reports")
+    comparison.add_argument("current", help="Current RogueShield JSON report")
+    comparison.add_argument("baseline", help="Previously saved RogueShield JSON report")
+    comparison.add_argument("--format", choices=("text", "json"), default="text")
+    comparison.add_argument("--out", help="Private, new local output file")
+    comparison.add_argument("--fail-on", choices=tuple(LEVEL), default="high")
     subs.add_parser("guide", help="Explain simple first steps")
     setup = subs.add_parser("setup", help="Choose testing level, environment and authorization")
     setup.add_argument("--level", choices=LEVELS)
@@ -86,7 +94,7 @@ def main(argv: list[str] | None = None) -> int:
             lvl = args.level or input("Testing level (beginner/standard/advanced/swarm-simulation): ").strip()
             env = args.environment or input("Environment (local/isolated-staging/staging/production): ").strip()
             print("Only assess systems you own or have permission to test.")
-            print("All v0.3 profiles are OFFLINE only, including production and swarm simulation.")
+            print("All v0.5 profiles are OFFLINE only, including production and swarm simulation.")
             accepted = input("Type exactly '" + CONSENT_PHRASE + "': ").strip()
             profile = choose_profile(lvl, env, accepted)
             output = Path(args.out)
@@ -123,12 +131,22 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "scope-check":
             print(json.dumps(validate_scope(read_json(args.input)), indent=2, sort_keys=True))
             return 0
+        if args.command == "compare":
+            result = compare_files(args.current, args.baseline)
+            if args.out:
+                write_comparison(result, args.out, args.format)
+                print(f"Saved {args.format} comparison: {_terminal_safe(args.out)}")
+            elif args.format == "json":
+                print(json.dumps(result, sort_keys=True, indent=2))
+            else:
+                print(text_comparison(result), end="")
+            return 2 if regression_at_or_above(result, args.fail_on) else 0
         if args.command == "review":
             report = inspect(args.input)
             findings = report["findings"]
             # Reuse presentation without falsely counting multiple heuristics as verified defects.
             return _report("guided-offline-review", findings, args.format, args.out, args.fail_on, preassembled=report)
-        tasks = {"static": inspect_python, "openapi": inspect_openapi, "invariants": inspect_invariants}
+        tasks = {"static": inspect_python, "openapi": inspect_openapi, "invariants": inspect_invariants, "authz": inspect_authz}
         return _report(args.command, tasks[args.command](args.input), args.format, args.out, args.fail_on)
     except (ValueError, OSError, PermissionError, EOFError, KeyboardInterrupt, json.JSONDecodeError) as exc:
         print(f"RogueShield could not complete this operation ({type(exc).__name__}). "

@@ -55,6 +55,7 @@ def sarif_report(report: dict) -> dict:
             "level": level,
             "message": {"text": finding["message"]},
             "locations": [_location(finding["location"])],
+            "partialFingerprints": {"rogueshield/v1": finding["fingerprint"]} if "fingerprint" in finding else {},
             "properties": {
                 "severity": finding["severity"],
                 "confidence": finding["confidence"],

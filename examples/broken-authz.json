@@ -1,0 +1,64 @@
+{
+  "kind": "authorization-matrix",
+  "schema_version": 1,
+  "principals": [
+    {
+      "id": "alice",
+      "tenant": "north",
+      "roles": [
+        "player"
+      ]
+    },
+    {
+      "id": "bob",
+      "tenant": "north",
+      "roles": [
+        "player"
+      ]
+    },
+    {
+      "id": "eve",
+      "tenant": "south",
+      "roles": [
+        "player"
+      ]
+    }
+  ],
+  "resources": [
+    {
+      "id": "wallet-a",
+      "type": "wallet",
+      "owner": "alice",
+      "tenant": "north"
+    }
+  ],
+  "policies": [
+    {
+      "resource_type": "wallet",
+      "action": "read",
+      "allow_owner": true,
+      "allow_roles": [],
+      "require_same_tenant": true
+    }
+  ],
+  "observations": [
+    {
+      "principal": "alice",
+      "resource": "wallet-a",
+      "action": "read",
+      "decision": "allow"
+    },
+    {
+      "principal": "bob",
+      "resource": "wallet-a",
+      "action": "read",
+      "decision": "allow"
+    },
+    {
+      "principal": "eve",
+      "resource": "wallet-a",
+      "action": "read",
+      "decision": "allow"
+    }
+  ]
+}

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from rogueshield.offline import MAX_INPUT, inspect_python, inspect_openapi, inspect_invariants, read_json
+from rogueshield.authz import inspect_authz
 from rogueshield.reporting import assemble
 
 
@@ -23,6 +24,10 @@ def inspect(target: str) -> dict:
             if spec.is_file() and not spec.is_symlink():
                 findings.extend(inspect_openapi(str(spec)))
                 kinds.append("openapi")
+        authz = p / "rogueshield-authz.json"
+        if authz.is_file() and not authz.is_symlink():
+            findings.extend(inspect_authz(str(authz)))
+            kinds.append("synthetic-authorization")
         fixtures = p / "rogueshield-fixtures.json"
         if fixtures.is_file() and not fixtures.is_symlink():
             findings.extend(inspect_invariants(str(fixtures)))
@@ -31,14 +36,17 @@ def inspect(target: str) -> dict:
         data = read_json(str(p))
         if not isinstance(data, dict):
             raise ValueError("Expected JSON object")
-        if "openapi" in data:
+        if data.get("kind") == "authorization-matrix":
+            findings.extend(inspect_authz(str(p)))
+            kinds.append("synthetic-authorization")
+        elif "openapi" in data:
             findings.extend(inspect_openapi(str(p)))
             kinds.append("openapi")
         elif any(key in data for key in ("transfers", "replays", "asset_transfers")):
             findings.extend(inspect_invariants(str(p)))
             kinds.append("synthetic-invariants")
         else:
-            raise ValueError("Unknown JSON format; provide OpenAPI 3 or synthetic invariants")
+            raise ValueError("Unknown JSON format; provide OpenAPI 3, authorization matrix or synthetic invariants")
     else:
         raise ValueError("Provide a source directory or supported JSON file")
     if not kinds:

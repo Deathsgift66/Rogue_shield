@@ -5,6 +5,7 @@ from collections import Counter
 from html import escape
 import json
 from rogueshield.localio import create_private
+from rogueshield.baseline import fingerprint
 from rogueshield.sarif import sarif_report
 import unicodedata
 
@@ -22,6 +23,10 @@ RULES: dict[str, tuple[str, str]] = {
     "INV-REPLAY": ("Operation may repeat its effect", "Require idempotency and atomic claim/settlement operations."),
     "INV-ASSET-CONSERVATION": ("Unexpected asset creation or loss", "Audit each asset independently; verify authorized mint, burn, fees and atomic transfer."),
     "INV-ASSET-NEGATIVE": ("Negative asset balance", "Enforce nonnegative per-asset balances within the same transaction as the transfer."),
+    "AUTHZ-BOLA": ("Object-level access-policy mismatch", "Check object ownership and role authorization on every server-side resource lookup."),
+    "AUTHZ-TENANT-ESCAPE": ("Cross-tenant access-policy mismatch", "Enforce tenant isolation in data access and authorization, not only in UI controls."),
+    "AUTHZ-OVERDENY": ("Expected access denied in synthetic fixture", "Check the declared policy and the observed fixture decision; verify intended role permissions."),
+    "AUTHZ-COVERAGE": ("Authorization test coverage gap", "Add disposable fixture observations for owner, peer and cross-tenant identities where applicable."),
 }
 SEVERITY = ("critical", "high", "medium", "low", "info")
 
@@ -36,10 +41,12 @@ def assemble(mode: str, findings: list[dict], *, checks: int = 1) -> dict:
         if severity not in SEVERITY:
             severity = "info"
         title, action = RULES.get(rule, ("Manual review needed", "Review the finding and validate it before making changes."))
+        location = str(f.get("location", ""))[:240]
+        message = str(f.get("message", ""))[:500]
         result.append({"rule_id": rule, "severity": severity, "title": title,
-                       "location": str(f.get("location", ""))[:240],
-                       "message": str(f.get("message", ""))[:500], "what_to_do": action,
-                       "confidence": "review-needed"})
+                       "location": location, "message": message, "what_to_do": action,
+                       "confidence": "review-needed",
+                       "fingerprint": fingerprint(rule, location, message)})
     result.sort(key=lambda x: (SEVERITY.index(x["severity"]), x["rule_id"], x["location"]))
     totals = dict(Counter(x["severity"] for x in result))
     return {"tool": "RogueShield", "schema_version": 1, "mode": mode,
