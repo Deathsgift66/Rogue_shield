@@ -34,7 +34,7 @@ def inspect(target: str) -> dict:
         if "openapi" in data:
             findings.extend(inspect_openapi(str(p)))
             kinds.append("openapi")
-        elif "transfers" in data or "replays" in data:
+        elif any(key in data for key in ("transfers", "replays", "asset_transfers")):
             findings.extend(inspect_invariants(str(p)))
             kinds.append("synthetic-invariants")
         else:
