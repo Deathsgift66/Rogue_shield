@@ -1,0 +1,47 @@
+{
+  "asset_transfers": [
+    {
+      "before": {
+        "gold": {
+          "alice": "100",
+          "bob": "0"
+        },
+        "gems": {
+          "alice": "5",
+          "bob": "3"
+        }
+      },
+      "after": {
+        "gold": {
+          "alice": "75",
+          "bob": "25"
+        },
+        "gems": {
+          "alice": "5",
+          "bob": "3"
+        }
+      },
+      "expected_external_delta": {
+        "gold": "0",
+        "gems": "0"
+      }
+    },
+    {
+      "before": {
+        "gold": {
+          "alice": "75",
+          "bob": "25"
+        }
+      },
+      "after": {
+        "gold": {
+          "alice": "75",
+          "bob": "27"
+        }
+      },
+      "expected_external_delta": {
+        "gold": "2"
+      }
+    }
+  ]
+}
