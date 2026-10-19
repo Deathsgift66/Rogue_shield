@@ -5,6 +5,7 @@ from collections import Counter
 from html import escape
 import json
 from rogueshield.localio import create_private
+from rogueshield.sarif import sarif_report
 import unicodedata
 
 RULES: dict[str, tuple[str, str]] = {
@@ -19,6 +20,8 @@ RULES: dict[str, tuple[str, str]] = {
     "INV-CONSERVATION": ("Unexpected balance change", "Verify all authorized mint, burn, fee, debit and credit operations."),
     "INV-NEGATIVE": ("Negative balance", "Make the balance transition atomic and enforce a nonnegative invariant."),
     "INV-REPLAY": ("Operation may repeat its effect", "Require idempotency and atomic claim/settlement operations."),
+    "INV-ASSET-CONSERVATION": ("Unexpected asset creation or loss", "Audit each asset independently; verify authorized mint, burn, fees and atomic transfer."),
+    "INV-ASSET-NEGATIVE": ("Negative asset balance", "Enforce nonnegative per-asset balances within the same transaction as the transfer."),
 }
 SEVERITY = ("critical", "high", "medium", "low", "info")
 
@@ -94,8 +97,11 @@ def html_report(report: dict) -> str:
 
 
 def write_report(report: dict, path: str, fmt: str) -> None:
-    if fmt not in ("json", "text", "html"):
+    if fmt not in ("json", "text", "html", "sarif"):
         raise ValueError("Unknown report format")
-    payload = (json.dumps(report, sort_keys=True, indent=2, ensure_ascii=False) + "\n" if fmt == "json"
-               else html_report(report) if fmt == "html" else text_report(report))
+    if fmt in ("json", "sarif"):
+        document = sarif_report(report) if fmt == "sarif" else report
+        payload = json.dumps(document, sort_keys=True, indent=2, ensure_ascii=False) + "\n"
+    else:
+        payload = html_report(report) if fmt == "html" else text_report(report)
     create_private(path, payload)
