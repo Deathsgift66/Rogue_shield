@@ -26,9 +26,9 @@ To install locally from this repository: `python -m pip install .` and replace `
 | --- | --- | --- |
 | Guided local review | Working | Inspect Python AST indicators, `openapi.json` or `swagger.json`, and optional `rogueshield-fixtures.json` in one directory |
 | Source inspection | Working, heuristic | Flags a small set of risky Python call patterns; cannot prove exploitability |
-| OpenAPI review | Working, heuristic | Flags HTTP server URLs, undocumented security for selected sensitive paths, deprecated modifying operations |
-| Economy-state invariants | Working, synthetic | Check conservation, negative balances, and idempotent replay using supplied example JSON |
-| Readable reports | Working | Text, standalone HTML (offline, escaped, CSP), deterministic JSON |
+| OpenAPI review | Working, heuristic | Flags HTTP server URLs, anonymous security alternatives or missing auth declarations on selected sensitive paths, and deprecated modifying operations; never proves server-side authorization |
+| Economy-state invariants | Working, synthetic | Check conservation, negative balances, and idempotent replay using supplied example JSON; optional `asset_transfers` checks each asset separately to catch cross-currency substitution |
+| Readable reports | Working | Text, standalone HTML (offline, escaped, CSP), deterministic JSON, and SARIF 2.1.0 for CI review |
 | Virtual swarm model | Working, synthetic | Model local per-identity, per-origin and global quota behavior for up to 100,000 virtual identities; **no real agents or traffic** |
 | Scope declaration validation | Working, offline | Check explicit origins, authorization acknowledgment, expiry, read-only methods, zero live-request budget and fingerprint scope |
 | Dynamic web/API scanning, autonomous AI pentesting | **Not implemented** | Reserved for audited and independently approved later releases |
@@ -39,6 +39,8 @@ To install locally from this repository: `python -m pip install .` and replace `
 python -m rogueshield static ./your-python-project --format text
 python -m rogueshield openapi examples/demo-openapi.json --format html --out api-review.html
 python -m rogueshield invariants examples/broken-invariants.json --format json --out economy-review.json
+python -m rogueshield invariants examples/demo-asset-invariants.json
+python -m rogueshield review ./your-project --format sarif --out rogueshield.sarif
 python -m rogueshield scope-check examples/scope-offline.example.json
 python -m rogueshield swarm-preview --agents 700 --rounds 10 --identity-limit 2 --global-limit 100
 python -m unittest discover -s tests -v
@@ -48,7 +50,7 @@ Exit codes for scan commands: `0` no findings at the configured threshold, `2` r
 
 ### What the report means
 
-Each review indicator shows **severity, location, what was noticed, and what to do next**. Severity is a prioritization hint, not proof of a vulnerability. Check the affected code/configuration manually before making changes. HTML reports have no external scripts or network assets.
+Each review indicator shows **severity, location, what was noticed, and what to do next**. SARIF 2.1.0 exports are suitable for compatible CI/code-review tools; their results are still unverified heuristic indicators. Severity is a prioritization hint, not proof of a vulnerability. Check the affected code/configuration manually before making changes. HTML reports have no external scripts or network assets.
 
 The 700-agent **virtual** output summarizes quota decisions on abstract identities and cohorts. It is not a performance benchmark and cannot establish protection against an actual attack. See [docs/TESTING_LEVELS.md](docs/TESTING_LEVELS.md).
 
@@ -58,7 +60,7 @@ RogueShield does not grant anyone permission to test systems belonging to others
 
 **Never commit third-party proprietary source, private game mechanics, player information, private endpoints, internal audits, credentials, or company secrets.** This public tool uses generic synthetic examples only; **no private project materials are included**.
 
-No external telemetry is implemented. Input files remain local unless the operator explicitly moves or publishes a report. Reports may include source-relative filenames and API path names; review them before sharing. Files are created privately and never overwrite existing report/configuration files.
+No external telemetry is implemented. Input files remain local unless the operator explicitly moves or publishes a report. JSON inputs reject duplicate object keys and non-standard NaN/Infinity values to avoid ambiguous security declarations. Reports may include source-relative filenames and API path names; review them before sharing. Files are created privately and never overwrite existing report/configuration files.
 
 ## Open source and safety
 
