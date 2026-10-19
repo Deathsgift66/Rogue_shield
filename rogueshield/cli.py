@@ -8,7 +8,7 @@ from rogueshield import __version__
 from rogueshield.manifest import validate_scope
 from rogueshield.localio import create_private
 from rogueshield.offline import inspect_python, inspect_openapi, inspect_invariants, read_json
-from rogueshield.reporting import assemble, html_report, text_report, write_report, _terminal_safe
+from rogueshield.reporting import assemble, html_report, sarif_report, text_report, write_report, _terminal_safe
 from rogueshield.review import inspect
 from rogueshield.safety import CONSENT_PHRASE, ENVIRONMENTS, LEVELS, choose_profile
 from rogueshield.swarm import SwarmConfig, simulate
@@ -18,7 +18,7 @@ LEVEL = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
 
 def _add_output_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--out", help="Local report path")
-    parser.add_argument("--format", choices=("text", "json", "html"), default="text")
+    parser.add_argument("--format", choices=("text", "json", "html", "sarif"), default="text")
     parser.add_argument("--fail-on", choices=tuple(LEVEL), default="high")
 
 
@@ -43,8 +43,9 @@ def _report(mode: str, findings: list[dict], fmt: str, output: str | None, thres
     if output:
         write_report(report, output, fmt)
         print(f"Saved {fmt} report: {_terminal_safe(output)}")
-    elif fmt == "json":
-        print(json.dumps(report, sort_keys=True, indent=2))
+    elif fmt in ("json", "sarif"):
+        document = sarif_report(report) if fmt == "sarif" else report
+        print(json.dumps(document, sort_keys=True, indent=2))
     elif fmt == "html":
         print(html_report(report))
     else:
